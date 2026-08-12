@@ -1,0 +1,14 @@
+# Editor-only environment for the local .venv. Nothing here reaches the
+# containers -- .venv is not a bind mount. It exists so Pylance can resolve
+# DAG imports.
+#
+# Mirrors the image exactly:
+#   - the same DAG dependencies the Dockerfile installs, by reference
+#   - plus apache-airflow, which the base image already provides
+#
+# The -r path resolves relative to this file, so there is one copy of the
+# dependency list, not two. Resync after changing it:
+#   uv pip compile requirements-dev.txt -c https://raw.githubusercontent.com/apache/airflow/constraints-3.3.0/constraints-3.13.txt -o requirements-dev.lock
+#   uv pip sync requirements-dev.lock
+-r ../../config/docker/airflow/requirements.txt
+apache-airflow==3.3.0
