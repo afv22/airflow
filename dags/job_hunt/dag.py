@@ -4,7 +4,7 @@ from airflow.sdk import DAG, task
 from airflow.providers.common.ai.toolsets.mcp import MCPToolset
 
 from common.criteria import load_criteria
-from job_hunt.types import JobVerdict, Verdict
+from job_hunt.types import JobVerdict
 from job_hunt.tasks import email_digest, fetch_hn_jobs
 
 # Connection of type "Pydantic AI" (conn_type: pydanticai) holding the
@@ -73,8 +73,7 @@ with DAG("job_research", **DAG_ARGS) as dag:
             f"Research this job listing and decide whether to apply.\n\n"
             f"Title: {job['title']}\n"
             f"URL: {job['url']}\n"
-            f"Posted by: {job['by']}\n"
-            f"Details: {job['text'] or 'none provided'}"
+            f"Details: {job['body'] or 'none provided'}"
         )
 
     @task
@@ -83,7 +82,7 @@ with DAG("job_research", **DAG_ARGS) as dag:
         return [
             {**job, **verdict}
             for job, verdict in zip(jobs, verdicts)
-            if verdict["verdict"] != Verdict.REJECT
+            # if verdict["verdict"] != Verdict.REJECT
         ]
 
     listings = fetch_hn_jobs()

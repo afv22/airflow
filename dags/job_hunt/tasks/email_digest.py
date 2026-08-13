@@ -16,7 +16,7 @@ def email_digest(approved: list[dict]) -> str | None:
     approved.sort(key=lambda job: job["verdict"] != Verdict.STRONG)
 
     sections = []
-    for band in (Verdict.STRONG, Verdict.REVIEW):
+    for band in (Verdict.STRONG, Verdict.REVIEW, Verdict.REJECT):
         jobs = [job for job in approved if job["verdict"] == band]
         if not jobs:
             continue

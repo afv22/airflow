@@ -12,7 +12,6 @@ class HackerNewsJob:
     by: str
     type: str
     url: str
-    # Absent (not just null) on some listings, so both need defaults.
     text: str | None = None
     score: int = 0
 
