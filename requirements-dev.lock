@@ -164,6 +164,7 @@ cryptography==48.0.1
     #   -c /tmp/constraints-filtered.txt
     #   apache-airflow-core
     #   authlib
+    #   google-auth
     #   joserfc
     #   pyjwt
     #   secretstorage
@@ -206,9 +207,29 @@ genai-prices==0.0.69
     # via
     #   -c /tmp/constraints-filtered.txt
     #   pydantic-ai-slim
+google-api-core==2.31.0
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   google-api-python-client
+google-api-python-client==2.198.0
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   -r ../../config/docker/airflow/requirements.txt
+google-auth==2.55.1
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   -r ../../config/docker/airflow/requirements.txt
+    #   google-api-core
+    #   google-api-python-client
+    #   google-auth-httplib2
+google-auth-httplib2==0.4.0
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   google-api-python-client
 googleapis-common-protos==1.75.0
     # via
     #   -c /tmp/constraints-filtered.txt
+    #   google-api-core
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 greenback==1.3.0
@@ -242,6 +263,11 @@ httpcore2==2.5.0
     # via
     #   -c /tmp/constraints-filtered.txt
     #   httpx2
+httplib2==0.32.0
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   google-api-python-client
+    #   google-auth-httplib2
 httptools==0.8.0
     # via
     #   -c /tmp/constraints-filtered.txt
@@ -462,11 +488,17 @@ pluggy==1.6.0
     #   -c /tmp/constraints-filtered.txt
     #   apache-airflow-core
     #   apache-airflow-task-sdk
+proto-plus==1.28.0
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   google-api-core
 protobuf==6.33.6
     # via
     #   -c /tmp/constraints-filtered.txt
+    #   google-api-core
     #   googleapis-common-protos
     #   opentelemetry-proto
+    #   proto-plus
 psutil==7.2.2
     # via
     #   -c /tmp/constraints-filtered.txt
@@ -474,6 +506,14 @@ psutil==7.2.2
     #   apache-airflow-task-sdk
 py-key-value-aio==0.4.5
     # via fastmcp-slim
+pyasn1==0.6.3
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   pyasn1-modules
+pyasn1-modules==0.4.2
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   google-auth
 pycparser==3.0
     # via
     #   -c /tmp/constraints-filtered.txt
@@ -529,6 +569,10 @@ pyjwt==2.13.0
     #   -c /tmp/constraints-filtered.txt
     #   apache-airflow-core
     #   mcp
+pyparsing==3.3.2
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   httplib2
 python-daemon==3.1.2
     # via
     #   -c /tmp/constraints-filtered.txt
@@ -574,6 +618,7 @@ requests==2.34.2
     # via
     #   -c /tmp/constraints-filtered.txt
     #   apache-airflow-core
+    #   google-api-core
     #   opentelemetry-exporter-otlp-proto-http
     #   resend
 resend==2.35.0
@@ -724,6 +769,10 @@ universal-pathlib==0.3.10
     # via
     #   -c /tmp/constraints-filtered.txt
     #   apache-airflow-core
+uritemplate==4.2.0
+    # via
+    #   -c /tmp/constraints-filtered.txt
+    #   google-api-python-client
 urllib3==2.7.0
     # via
     #   -c /tmp/constraints-filtered.txt
