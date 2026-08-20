@@ -13,6 +13,7 @@ from airflow.sdk import Connection, task
 
 from common import gsheets
 from job_lead_research.sync_watchlist import store
+from .types import Company
 
 # Connection holding both the credential and the sheet coordinates. Create it in
 # the Airflow UI (Admin > Connections) as a Generic connection with this extra:
@@ -31,22 +32,8 @@ WATCHLIST_CONN_ID = "job_watchlist_sheet"
 # extra config but an unusual tab layout stays overridable.
 DEFAULT_RANGE = "Companies!A:E"
 
-# The sheet's headers, normalized by gsheets.rows_to_dicts, mapped onto the
-# mirror's columns. Only 'name' is required; a row without one is spacing or a
-# half-typed entry, not a company.
-COLUMNS = ("name", "board_url", "board_type", "status", "notes")
 
-
-def as_company_row(record: dict[str, str]) -> dict[str, str]:
-    """Map one normalized sheet row onto the columns of ``companies``.
-
-    Unknown columns in the sheet are ignored rather than rejected, so Andrew can
-    add his own scratch columns to the tab without breaking the sync.
-    """
-    return {column: record.get(column, "") for column in COLUMNS}
-
-
-def fetch_watchlist(conn_id: str = WATCHLIST_CONN_ID) -> list[dict[str, str]]:
+def fetch_watchlist(conn_id: str = WATCHLIST_CONN_ID) -> list[Company]:
     """Read the Companies tab and return one dict per usable row."""
     conn = Connection.get(conn_id)
     extra = conn.extra_dejson
@@ -64,17 +51,19 @@ def fetch_watchlist(conn_id: str = WATCHLIST_CONN_ID) -> list[dict[str, str]]:
     )
 
     records = gsheets.rows_to_dicts(rows)
-    return [as_company_row(record) for record in records if record.get("name")]
+    return [Company.load(record) for record in records if record.get("name")]
 
 
 @task
-def sync_watchlist() -> list[dict]:
-    """Refresh the company mirror from the sheet and return the rows to scan.
+def sync_watchlist() -> int:
+    """Refresh the company mirror from the sheet and return number of active rows.
 
     The mirror is rewritten wholesale, so a company deleted from the sheet stops
     being scanned the same day. Scan state survives that rewrite (it lives in its
     own table), which is what lets the scanner keep prioritizing least-recently
     scanned boards across syncs.
+
+    Downstream tasks should ingest directly from the db.
     """
     store.init_schema()
 
@@ -84,4 +73,4 @@ def sync_watchlist() -> list[dict]:
     active = store.active_companies()
     print(f"Synced {synced} companies from the sheet; {len(active)} active to scan.")
 
-    return active
+    return len(active)

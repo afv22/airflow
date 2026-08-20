@@ -1,3 +1,3 @@
-from .main import sync_watchlist
+from .task import sync_watchlist
 
 __all__ = ["sync_watchlist"]

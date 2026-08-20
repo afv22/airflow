@@ -15,9 +15,8 @@ Two tables with deliberately different ownership:
     stale row costs one unused row.
 """
 
-from typing import Any
-
 from common import db
+from .types import Company
 
 SCHEMA = [
     """
@@ -25,6 +24,7 @@ SCHEMA = [
         name        TEXT    NOT NULL PRIMARY KEY,
         board_url   TEXT,
         board_type  TEXT,
+        filters     TEXT,
         status      TEXT,
         notes       TEXT,
         synced_at   TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -52,7 +52,7 @@ def init_schema() -> None:
     db.init_schema(SCHEMA)
 
 
-def replace_companies(companies: list[dict[str, Any]]) -> int:
+def replace_companies(companies: list[Company]) -> int:
     """Rewrite the mirror to exactly match the sheet, returning the row count.
 
     Delete-then-insert inside one transaction, rather than an upsert plus a
@@ -76,25 +76,16 @@ def replace_companies(companies: list[dict[str, Any]]) -> int:
         conn.execute("DELETE FROM companies")
         conn.executemany(
             """
-            INSERT INTO companies (name, board_url, board_type, status, notes)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO companies (name, board_url, board_type, filters, status, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            [
-                (
-                    company["name"],
-                    company["board_url"],
-                    company["board_type"],
-                    company["status"],
-                    company["notes"],
-                )
-                for company in companies
-            ],
+            [company.dump() for company in companies],
         )
 
     return len(companies)
 
 
-def active_companies() -> list[dict[str, Any]]:
+def active_companies() -> list[Company]:
     """Return the companies whose boards should be scanned this run.
 
     Status is compared case-insensitively so the sheet can hold "Active".
@@ -104,17 +95,15 @@ def active_companies() -> list[dict[str, Any]]:
     """
     rows = db.execute(
         """
-        SELECT c.name, c.board_url, c.board_type, c.status, c.notes,
-               s.last_scanned_at, s.last_status
+        SELECT c.name, c.board_url, c.board_type, c.filters, c.status, c.notes
         FROM companies c
-        LEFT JOIN company_scan_state s ON s.company_name = c.name
         WHERE c.board_url <> ''
-          AND (TRIM(LOWER(c.status)) = ? OR TRIM(c.status) = '')
-        ORDER BY s.last_scanned_at IS NOT NULL, s.last_scanned_at, c.name
+            AND (TRIM(LOWER(c.status)) = ? OR TRIM(c.status) = '')
+        ORDER BY c.name
         """,
         (STATUS_ACTIVE,),
     )
-    return [dict(row) for row in rows]
+    return [Company.load(dict(row)) for row in rows]
 
 
 def record_scan(
