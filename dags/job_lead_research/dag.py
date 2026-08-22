@@ -10,14 +10,16 @@ Run it on demand while building:
 
     airflow dags test job_lead_research
 
-Next pieces slot in downstream of sync_watchlist: scan_board (fan-out over the
-returned companies), the mechanical prefilter, then research and digest.
+sync_watchlist mirrors the sheet, scan_boards polls each active company's ATS
+through its adapter, and select_unresearched pulls the batch the research stage
+will judge. Research and digest slot in downstream of that.
 """
 
 import pendulum
 
 from airflow.sdk import DAG
 
+from job_lead_research.scan_boards import scan_boards, select_unresearched
 from job_lead_research.sync_watchlist import sync_watchlist
 
 DAG_ARGS = {
@@ -38,4 +40,6 @@ DAG_ARGS = {
 
 
 with DAG("job_lead_research", **DAG_ARGS) as dag:
-    sync_watchlist()
+    # scan_boards reads the companies out of the mirror rather than taking them
+    # as an argument, so the dependency is ordering, not data.
+    sync_watchlist() >> scan_boards() >> select_unresearched()

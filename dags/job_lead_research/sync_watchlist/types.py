@@ -4,6 +4,18 @@ from enum import Enum
 
 
 class ATSProvider(Enum):
+    """The board platform a company's careers page is a skin over.
+
+    Members exist for platforms we can name in the sheet, not only for ones with
+    an adapter written: naming a board type is how Andrew records what he found,
+    and an unsupported type should surface as "no adapter yet" in scan health
+    rather than collapse into OTHER and lose the information.
+    """
+
+    ASHBY = "ashby"
+    GREENHOUSE = "greenhouse"
+    LEVER = "lever"
+    WORKABLE = "workable"
     OTHER = "other"
 
 
