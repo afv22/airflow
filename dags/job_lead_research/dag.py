@@ -19,8 +19,8 @@ import pendulum
 
 from airflow.sdk import DAG
 
-from job_lead_research.scan_boards import scan_boards, select_unresearched
 from job_lead_research.sync_watchlist import sync_watchlist
+from job_lead_research.scan_boards import scan_boards
 
 DAG_ARGS = {
     "default_args": {
@@ -42,4 +42,4 @@ DAG_ARGS = {
 with DAG("job_lead_research", **DAG_ARGS) as dag:
     # scan_boards reads the companies out of the mirror rather than taking them
     # as an argument, so the dependency is ordering, not data.
-    sync_watchlist() >> scan_boards() >> select_unresearched()
+    sync_watchlist() >> scan_boards()

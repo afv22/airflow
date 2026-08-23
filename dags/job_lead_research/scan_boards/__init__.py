@@ -1,3 +1,3 @@
-from .task import scan_boards, select_unresearched
+from .task import scan_boards
 
-__all__ = ["scan_boards", "select_unresearched"]
+__all__ = ["scan_boards"]

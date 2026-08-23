@@ -16,7 +16,7 @@ Two tables with deliberately different ownership:
 """
 
 from common import db
-from .types import Company
+from ..types import Company
 
 SCHEMA = [
     """
@@ -24,19 +24,10 @@ SCHEMA = [
         name        TEXT    NOT NULL PRIMARY KEY,
         board_url   TEXT,
         board_type  TEXT,
-        filters     TEXT,
+        board_slug  TEXT,
         status      TEXT,
         notes       TEXT,
         synced_at   TEXT    NOT NULL DEFAULT (datetime('now'))
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS company_scan_state (
-        company_name    TEXT    NOT NULL PRIMARY KEY,
-        last_scanned_at TEXT,
-        last_status     TEXT    CHECK (last_status IN ('ok', 'error', 'empty')),
-        last_error      TEXT,
-        listing_count   INTEGER
     )
     """,
 ]
@@ -76,8 +67,8 @@ def replace_companies(companies: list[Company]) -> int:
         conn.execute("DELETE FROM companies")
         conn.executemany(
             """
-            INSERT INTO companies (name, board_url, board_type, filters, status, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO companies (name, board_url, board_type, board_slug, status, notes, synced_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             [company.dump() for company in companies],
         )
@@ -95,7 +86,7 @@ def active_companies() -> list[Company]:
     """
     rows = db.execute(
         """
-        SELECT c.name, c.board_url, c.board_type, c.filters, c.status, c.notes
+        SELECT c.name, c.board_url, c.board_type, c.board_slug, c.status, c.notes, c.synced_at
         FROM companies c
         WHERE c.board_url <> ''
             AND (TRIM(LOWER(c.status)) = ? OR TRIM(c.status) = '')
@@ -104,31 +95,3 @@ def active_companies() -> list[Company]:
         (STATUS_ACTIVE,),
     )
     return [Company.load(dict(row)) for row in rows]
-
-
-def record_scan(
-    company_name: str,
-    status: str,
-    listing_count: int = 0,
-    error: str | None = None,
-) -> None:
-    """Store the outcome of a board scan, whether it succeeded or not.
-
-    Called by ``scan_board`` (round 1, piece 2). Recording failures is the point:
-    an errored or empty scan must be visibly distinct from "this company has no
-    open roles", so a flaky page never reads as every role having closed.
-    """
-    db.execute(
-        """
-        INSERT INTO company_scan_state (
-            company_name, last_scanned_at, last_status, last_error, listing_count
-        )
-        VALUES (?, datetime('now'), ?, ?, ?)
-        ON CONFLICT (company_name) DO UPDATE SET
-            last_scanned_at = datetime('now'),
-            last_status     = excluded.last_status,
-            last_error      = excluded.last_error,
-            listing_count   = excluded.listing_count
-        """,
-        (company_name, status, error, listing_count),
-    )

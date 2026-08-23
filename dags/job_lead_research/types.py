@@ -24,10 +24,10 @@ class Company:
     name: str
     board_url: str
     board_type: ATSProvider
-    filters: str
+    board_slug: str
     status: str
     notes: str
-    synced_at: str | None = None
+    synced_at: str
 
     @staticmethod
     def load(record: Mapping[str, str]) -> "Company":
@@ -40,9 +40,10 @@ class Company:
             name=record["name"],
             board_url=record.get("board_url", ""),
             board_type=board_type,
-            filters=record.get("filters", ""),
+            board_slug=record.get("board_slug", ""),
             status=record.get("status", ""),
             notes=record.get("notes", ""),
+            synced_at=record.get("synced_at", ""),
         )
 
     def dump(self) -> tuple:
@@ -50,7 +51,45 @@ class Company:
             self.name,
             self.board_url,
             self.board_type.value,
-            self.filters,
+            self.board_slug,
             self.status,
             self.notes,
+            self.synced_at,
+        )
+
+
+@dataclass
+class JobListing:
+    id: str
+    company_name: str
+    location: str
+    title: str
+    description: str
+    listing_url: str
+    published_at: str
+    added_at: str
+
+    @staticmethod
+    def load(record: Mapping[str, str]) -> "JobListing":
+        return JobListing(
+            id=record["id"],
+            company_name=record.get("company_name", ""),
+            location=record.get("location", ""),
+            title=record.get("title", ""),
+            description=record.get("description", ""),
+            listing_url=record.get("listing_url", ""),
+            published_at=record.get("published_at", ""),
+            added_at=record.get("added_at", ""),
+        )
+
+    def dump(self) -> tuple:
+        return (
+            self.id,
+            self.company_name,
+            self.location,
+            self.title,
+            self.description,
+            self.listing_url,
+            self.published_at,
+            self.added_at,
         )
