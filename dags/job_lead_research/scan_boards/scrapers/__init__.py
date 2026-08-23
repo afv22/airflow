@@ -11,10 +11,12 @@ from job_lead_research.types import ATSProvider
 from .base import ATSScraper
 from .ashby import AshbyScraper
 from .greenhouse import GreenhouseScraper
+from .pinpoint import PinpointScraper
 
 SCRAPERS: dict[ATSProvider, type[ATSScraper]] = {
     ATSProvider.ASHBY: AshbyScraper,
     ATSProvider.GREENHOUSE: GreenhouseScraper,
+    ATSProvider.PINPOINT: PinpointScraper,
 }
 
 
@@ -27,6 +29,7 @@ __all__ = [
     "ATSScraper",
     "AshbyScraper",
     "GreenhouseScraper",
+    "PinpointScraper",
     "SCRAPERS",
     "scraper_for",
 ]
