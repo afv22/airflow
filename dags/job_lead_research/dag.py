@@ -11,8 +11,9 @@ Run it on demand while building:
     airflow dags test job_lead_research
 
 sync_watchlist mirrors the sheet, scan_boards polls each active company's ATS
-through its adapter, and select_unresearched pulls the batch the research stage
-will judge. Research and digest slot in downstream of that.
+through its adapter, and filter_relevance runs the coarse LLM pass that clears
+obviously irrelevant listings out of the pending queue. Research and digest
+slot in downstream of that.
 """
 
 import pendulum
@@ -21,6 +22,7 @@ from airflow.sdk import DAG
 
 from job_lead_research.sync_watchlist import sync_watchlist
 from job_lead_research.scan_boards import scan_boards
+from job_lead_research.filter_relevance import filter_relevance
 
 DAG_ARGS = {
     "default_args": {
@@ -42,4 +44,6 @@ DAG_ARGS = {
 with DAG("job_lead_research", **DAG_ARGS) as dag:
     # scan_boards reads the companies out of the mirror rather than taking them
     # as an argument, so the dependency is ordering, not data.
-    sync_watchlist() >> scan_boards()
+    boards_scanned = scan_boards()
+    sync_watchlist() >> boards_scanned
+    filter_relevance(upstream=boards_scanned)

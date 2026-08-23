@@ -2,6 +2,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 
+from pydantic import BaseModel
+
 
 class ATSProvider(Enum):
     """The board platform a company's careers page is a skin over.
@@ -58,6 +60,23 @@ class Company:
         )
 
 
+class RelevanceDecision(Enum):
+    """Whether a listing is worth carrying into the next stage.
+
+    ``PENDING`` is the state a freshly scraped listing is stored in, and is
+    deliberately distinct from ``REJECT``: "not yet judged" and "judged and
+    turned down" are different facts, and collapsing them into NULL would make a
+    re-run unable to tell what still needs work. ``ERROR`` covers a judgement
+    that was attempted and blew up, so a failing listing can be retried without
+    being mistaken for a rejection.
+    """
+
+    PENDING = "pending"
+    PASS = "pass"
+    REJECT = "reject"
+    ERROR = "error"
+
+
 @dataclass
 class JobListing:
     id: str
@@ -68,9 +87,20 @@ class JobListing:
     listing_url: str
     published_at: str
     added_at: str
+    relevance_decision: RelevanceDecision
+    relevance_rejection: str
 
     @staticmethod
     def load(record: Mapping[str, str]) -> "JobListing":
+        # An unreadable or absent verdict reads as unjudged rather than as a
+        # rejection, so a bad value costs a re-judgement and not a dropped lead.
+        try:
+            relevance_decision = RelevanceDecision(
+                record.get("relevance_decision", "").lower()
+            )
+        except ValueError:
+            relevance_decision = RelevanceDecision.PENDING
+
         return JobListing(
             id=record["id"],
             company_name=record.get("company_name", ""),
@@ -80,6 +110,8 @@ class JobListing:
             listing_url=record.get("listing_url", ""),
             published_at=record.get("published_at", ""),
             added_at=record.get("added_at", ""),
+            relevance_decision=relevance_decision,
+            relevance_rejection=record.get("relevance_rejection", ""),
         )
 
     def dump(self) -> tuple:
@@ -92,4 +124,36 @@ class JobListing:
             self.listing_url,
             self.published_at,
             self.added_at,
+            self.relevance_decision.value,
+            self.relevance_rejection,
         )
+
+
+class RelevanceResult(BaseModel):
+    """One listing's yes/no relevance verdict, as judged by the LLM filter.
+
+    ``company_name`` and ``id`` together are how the result is matched back to
+    its ``job_listings`` row -- board ids repeat across providers, so ``id``
+    alone cannot identify a listing.
+    """
+
+    company_name: str
+    id: str
+    relevant: bool
+    reasoning: str = ""
+
+
+class RelevanceResults(BaseModel):
+    """The whole batch of verdicts from one ``judge_listings`` call.
+
+    ``LLMOperator``'s ``serialize_output=True`` only dumps its output to a
+    dict when the output itself is a ``BaseModel`` instance -- a bare
+    ``list[RelevanceResult]`` never satisfies that check, so a raw
+    ``RelevanceResult`` list would cross XCom unserialized and fail
+    deserialization downstream without a config change. Wrapping the list in
+    one top-level model gives ``output_type`` a ``BaseModel`` to hand
+    ``serialize_output`` and keeps the fix local to this type rather than
+    Airflow config.
+    """
+
+    results: list[RelevanceResult]

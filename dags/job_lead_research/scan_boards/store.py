@@ -26,6 +26,12 @@ SCHEMA = [
         listing_url     TEXT,
         published_at    TEXT,
         added_at        TEXT    NOT NULL DEFAULT (datetime('now')),
+
+        -- Stage one of the decision pipeline. Later stages add their own
+        -- <stage>_decision / <stage>_rejection pair alongside these.
+        relevance_decision  TEXT    NOT NULL DEFAULT 'pending',
+        relevance_rejection TEXT    NOT NULL DEFAULT '',
+
         PRIMARY KEY (company_name, id)
     )
     """,
@@ -47,9 +53,11 @@ def insert_listings(listings: list[JobListing]) -> int:
     scanned". Re-inserting instead would reset that on every run and hide which
     postings are genuinely new.
 
-    ``added_at`` is left to the column default rather than taken from the
-    dataclass, so freshly scraped listings (which carry no value for it yet)
-    get a consistent server-side timestamp.
+    ``added_at`` and the ``relevance_*`` decision columns are left to their
+    column defaults rather than taken from the dataclass: a freshly scraped
+    listing carries no timestamp yet, and has not been judged, so writing the
+    scraper's placeholder verdict here would let a scrape overwrite a real
+    decision. Only the scraped fields are named in the INSERT.
 
     All listings go in one transaction: a scan either lands whole or not at all,
     so a mid-batch failure cannot leave a company half-recorded.
@@ -68,7 +76,18 @@ def insert_listings(listings: list[JobListing]) -> int:
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (company_name, id) DO NOTHING
             """,
-            [listing.dump()[:-1] for listing in listings],
+            [
+                (
+                    listing.id,
+                    listing.company_name,
+                    listing.location,
+                    listing.title,
+                    listing.description,
+                    listing.listing_url,
+                    listing.published_at,
+                )
+                for listing in listings
+            ],
         )
         after = conn.execute("SELECT COUNT(*) FROM job_listings").fetchone()[0]
 

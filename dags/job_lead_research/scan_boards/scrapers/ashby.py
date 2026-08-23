@@ -19,7 +19,7 @@ for the research agent, and the HTML is markup-heavy enough to bury the content.
 
 import requests
 
-from job_lead_research.types import JobListing
+from job_lead_research.types import JobListing, RelevanceDecision
 from .base import ATSScraper
 
 API_ROOT = "https://api.ashbyhq.com/posting-api/job-board"
@@ -57,6 +57,9 @@ class AshbyScraper(ATSScraper):
 
         ``added_at`` is left empty: it means "when we first saw this", which
         only the insert knows, so the store fills it from the column default.
+        The ``relevance_*`` fields are likewise unset here -- a scraper reports
+        what a board says, it does not judge it -- and are filled by the
+        decision stage that runs after this one.
         """
         return JobListing(
             id=blob["id"],
@@ -69,6 +72,8 @@ class AshbyScraper(ATSScraper):
             listing_url=blob.get("jobUrl") or "",
             published_at=blob.get("publishedAt") or "",
             added_at="",
+            relevance_decision=RelevanceDecision.PENDING,
+            relevance_rejection="",
         )
 
     @staticmethod
