@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ class ATSProvider(Enum):
 
     ASHBY = "ashby"
     GREENHOUSE = "greenhouse"
+    PINPOINT = "pinpoint"
     LEVER = "lever"
     WORKABLE = "workable"
     OTHER = "other"
@@ -77,6 +79,30 @@ class RelevanceDecision(Enum):
     ERROR = "error"
 
 
+class FitDecision(Enum):
+    """How well a listing matches the criteria in ``dags/criteria/job_search.md``.
+
+    Three real verdicts rather than a boolean, so the digest can be ordered by
+    how much attention a listing deserves: ``STRONG`` is worth reading first,
+    ``REVIEW`` is a judgement call worth a look, ``REJECT`` is not.
+
+    ``SKIPPED`` is the state of a listing the relevance filter turned down, and
+    is a third fact distinct from both ``PENDING`` and ``REJECT``: it was never
+    eligible for a fit judgement at all. Keeping it separate means the pending
+    query needs no join back to ``relevance_decision``, and a count of fit
+    rejections is not polluted by listings this stage never saw. It is written
+    by the relevance stage, not this one -- see
+    ``filter_relevance.store.save_decisions``.
+    """
+
+    PENDING = "pending"
+    SKIPPED = "skipped"
+    STRONG = "strong"
+    REVIEW = "review"
+    REJECT = "reject"
+    ERROR = "error"
+
+
 @dataclass
 class JobListing:
     id: str
@@ -89,6 +115,8 @@ class JobListing:
     added_at: str = ""
     relevance_decision: RelevanceDecision = RelevanceDecision.PENDING
     relevance_rejection: str = ""
+    fit_decision: FitDecision = FitDecision.PENDING
+    fit_reasoning: str = ""
 
     @staticmethod
     def load(record: Mapping[str, str]) -> "JobListing":
@@ -101,6 +129,11 @@ class JobListing:
         except ValueError:
             relevance_decision = RelevanceDecision.PENDING
 
+        try:
+            fit_decision = FitDecision(record.get("fit_decision", "").lower())
+        except ValueError:
+            fit_decision = FitDecision.PENDING
+
         return JobListing(
             id=record["id"],
             company_name=record.get("company_name", ""),
@@ -112,6 +145,8 @@ class JobListing:
             added_at=record.get("added_at", ""),
             relevance_decision=relevance_decision,
             relevance_rejection=record.get("relevance_rejection", ""),
+            fit_decision=fit_decision,
+            fit_reasoning=record.get("fit_reasoning", ""),
         )
 
     def dump(self) -> tuple:
@@ -126,6 +161,8 @@ class JobListing:
             self.added_at,
             self.relevance_decision.value,
             self.relevance_rejection,
+            self.fit_decision.value,
+            self.fit_reasoning,
         )
 
 
@@ -157,3 +194,31 @@ class RelevanceResults(BaseModel):
     """
 
     results: list[RelevanceResult]
+
+
+class FitResult(BaseModel):
+    """One listing's fit verdict, as judged against the criteria file.
+
+    Matched back to its ``job_listings`` row on ``(company_name, id)``, for the
+    same reason :class:`RelevanceResult` is: board ids repeat across providers.
+
+    ``decision`` is the string form of a :class:`FitDecision` rather than the
+    enum itself -- the LLM only ever returns the three real verdicts, and
+    keeping the wire type a plain literal stops ``PENDING``/``SKIPPED``/
+    ``ERROR`` from being offerable as model output.
+    """
+
+    company_name: str
+    id: str
+    decision: Literal["strong", "review", "reject"]
+    reasoning: str = ""
+
+
+class FitResults(BaseModel):
+    """The whole batch of fit verdicts from one ``judge_fit`` call.
+
+    Wrapped in a single top-level model for the same ``serialize_output``
+    reason documented on :class:`RelevanceResults`.
+    """
+
+    results: list[FitResult]

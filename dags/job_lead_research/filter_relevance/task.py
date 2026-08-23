@@ -17,6 +17,7 @@ from airflow.sdk import task
 
 from job_lead_research.filter_relevance import store
 from job_lead_research.filter_relevance.prompt import SYSTEM_PROMPT
+from job_lead_research.prompting import escape_jinja
 from job_lead_research.types import RelevanceResult, RelevanceResults
 
 # Connection of type "Pydantic AI" (conn_type: pydanticai) holding the
@@ -28,28 +29,6 @@ MODEL_ID = "openrouter:deepseek/deepseek-v4-flash-0731"
 # formatted, so this stays small rather than trying to fit the whole day's
 # batch into one prompt.
 CHUNK_SIZE = 5
-
-
-def _escape_jinja(text: str) -> str:
-    """Neutralize Jinja delimiters so scraped text can't be parsed as a template.
-
-    ``LLMOperator.prompt`` is a ``template_field``, so the whole prompt this
-    task builds gets rendered through Jinja before the LLM ever sees it.
-    Scraped job descriptions are free text from other people's sites and have
-    turned up literal ``{{...}}`` (an unrendered salary-range placeholder from
-    the source page) that Jinja then fails to parse as its own syntax. Widen
-    the delimiters with a zero-width space so Jinja no longer recognizes them,
-    while leaving the text visually unchanged for the LLM.
-    """
-    zwsp = "​"
-    return (
-        text.replace("{{", f"{{{zwsp}{{")
-        .replace("}}", f"}}{zwsp}}}")
-        .replace("{%", f"{{{zwsp}%")
-        .replace("%}", f"%{zwsp}}}")
-        .replace("{#", f"{{{zwsp}#")
-        .replace("#}", f"#{zwsp}}}")
-    )
 
 
 def _format_listing(listing: dict) -> str:
@@ -87,13 +66,21 @@ def judge_listings(chunk: list[dict]) -> str:
     return f"Judge the following {len(chunk)} job listings:\n\n{listing_blocks}"
 
 
-@task
+@task(trigger_rule="all_done")
 def save_verdicts(chunks: list[list[dict]], results: list[dict]) -> int:
     """Persist every chunk's verdicts, and log anything left unjudged.
 
     A listing whose verdict never lands here -- because it was dropped from
-    its chunk's reply -- is left ``pending`` and picked up again next run,
-    rather than silently marked either way.
+    its chunk's reply, or because the whole chunk's LLM call failed -- is left
+    ``pending`` and picked up again next run, rather than silently marked
+    either way.
+
+    ``trigger_rule="all_done"`` rather than the default ``all_success``: the
+    upstream is a mapped task, and under ``all_success`` a single failing
+    chunk skips this task entirely, discarding the verdicts every *other*
+    chunk paid an LLM call to produce. Failed map instances are absent from
+    ``results`` rather than present as ``None``, so the batch saves whatever
+    arrived and the rest stays pending.
     """
     verdicts = [
         RelevanceResult(**result)
@@ -146,9 +133,9 @@ def get_pending_chunks() -> list[list[dict]]:
             # byte-for-byte; only free text the LLM merely reads gets escaped.
             "company_name": listing.company_name,
             "id": listing.id,
-            "title": _escape_jinja(listing.title),
-            "location": _escape_jinja(listing.location),
-            "description": _escape_jinja(listing.description),
+            "title": escape_jinja(listing.title),
+            "location": escape_jinja(listing.location),
+            "description": escape_jinja(listing.description),
         }
         for listing in store.pending_listings()
     ]

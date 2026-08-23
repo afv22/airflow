@@ -12,6 +12,8 @@ back the same string; scoping by company keeps them apart without inventing a
 surrogate key.
 """
 
+import sqlite3
+
 from common import db
 from ..types import JobListing
 
@@ -32,15 +34,68 @@ SCHEMA = [
         relevance_decision  TEXT    NOT NULL DEFAULT 'pending',
         relevance_rejection TEXT    NOT NULL DEFAULT '',
 
+        -- Stage two: the careful judgement against dags/criteria/job_search.md,
+        -- run only on listings stage one passed. 'skipped' is written for the
+        -- rest, by the relevance stage itself.
+        fit_decision        TEXT    NOT NULL DEFAULT 'pending',
+        fit_reasoning       TEXT    NOT NULL DEFAULT '',
+
         PRIMARY KEY (company_name, id)
     )
     """,
 ]
 
+# Columns added to job_listings after rows already existed. CREATE TABLE IF NOT
+# EXISTS is a no-op against a table that is already there, so a column added to
+# SCHEMA above reaches a fresh database and no other -- every existing row would
+# be missing it. ADD COLUMN raises rather than no-oping when the column is
+# already present, so these are applied individually and that specific error
+# swallowed, which is what makes re-running the DAG safe.
+#
+# A new column here also needs its default backfilled for existing rows: see
+# BACKFILLS below.
+MIGRATIONS = [
+    "ALTER TABLE job_listings ADD COLUMN fit_decision TEXT NOT NULL DEFAULT 'pending'",
+    "ALTER TABLE job_listings ADD COLUMN fit_reasoning TEXT NOT NULL DEFAULT ''",
+]
+
+# One-time corrections to rows that predate a column's meaning. Each must be
+# idempotent -- they run on every scan, not once.
+#
+# Listings the relevance filter already rejected were never eligible for a fit
+# judgement, so they take 'skipped' rather than sitting in the fit queue
+# forever. Scoped to rows still at the column default so a real verdict is
+# never overwritten.
+BACKFILLS = [
+    """
+    UPDATE job_listings
+    SET fit_decision = 'skipped'
+    WHERE fit_decision = 'pending' AND relevance_decision != 'pass'
+    """,
+]
+
 
 def init_schema() -> None:
-    """Create the table if it is not already there."""
+    """Create the table if it is not already there, and bring it up to date."""
     db.init_schema(SCHEMA)
+    _apply_migrations()
+    db.init_schema(BACKFILLS)
+
+
+def _apply_migrations() -> None:
+    """Apply each ADD COLUMN, treating "already exists" as success.
+
+    Applied one statement per transaction rather than as one batch: SQLite has
+    no IF NOT EXISTS for ADD COLUMN, so the already-applied case arrives as an
+    OperationalError, and sharing a transaction would roll the whole batch back
+    on the first column that was already there.
+    """
+    for statement in MIGRATIONS:
+        try:
+            db.execute(statement)
+        except sqlite3.OperationalError as error:
+            if "duplicate column name" not in str(error).lower():
+                raise
 
 
 def insert_listings(listings: list[JobListing]) -> int:

@@ -6,7 +6,12 @@ defined there.
 """
 
 from common import db
-from job_lead_research.types import JobListing, RelevanceDecision, RelevanceResult
+from job_lead_research.types import (
+    FitDecision,
+    JobListing,
+    RelevanceDecision,
+    RelevanceResult,
+)
 
 
 def pending_listings() -> list[JobListing]:
@@ -32,6 +37,16 @@ def save_decisions(results: list[RelevanceResult]) -> int:
     ids alone repeat across providers. One transaction for the whole batch, so
     a mid-batch failure leaves every row still ``pending`` rather than half
     judged.
+
+    A rejection also closes out the downstream fit stage, writing
+    ``fit_decision = 'skipped'`` in the same statement. This stage writing a
+    later stage's column is deliberate: a listing rejected here is never
+    eligible for a fit judgement, and settling that in the same transaction is
+    what lets the fit stage's pending query be a plain
+    ``WHERE fit_decision = 'pending'`` with no join back to this column. The
+    alternative -- leaving rejects ``pending`` and filtering them out at read
+    time -- leaves a row's meaning split across two stages, and strands them in
+    the fit queue if that stage never runs.
     """
     if not results:
         return 0
@@ -40,7 +55,7 @@ def save_decisions(results: list[RelevanceResult]) -> int:
         conn.executemany(
             """
             UPDATE job_listings
-            SET relevance_decision = ?, relevance_rejection = ?
+            SET relevance_decision = ?, relevance_rejection = ?, fit_decision = ?
             WHERE company_name = ? AND id = ?
             """,
             [
@@ -51,6 +66,9 @@ def save_decisions(results: list[RelevanceResult]) -> int:
                         else RelevanceDecision.REJECT
                     ).value,
                     "" if result.relevant else result.reasoning,
+                    (
+                        FitDecision.PENDING if result.relevant else FitDecision.SKIPPED
+                    ).value,
                     result.company_name,
                     result.id,
                 )
@@ -75,11 +93,19 @@ def mark_errored(listings: list[JobListing], error: str) -> int:
         conn.executemany(
             """
             UPDATE job_listings
-            SET relevance_decision = ?, relevance_rejection = ?
+            SET relevance_decision = ?, relevance_rejection = ?, fit_decision = ?
             WHERE company_name = ? AND id = ?
             """,
             [
-                (RelevanceDecision.ERROR.value, error, listing.company_name, listing.id)
+                (
+                    RelevanceDecision.ERROR.value,
+                    error,
+                    # Not judged relevant, so not fit-eligible -- same reasoning
+                    # as a reject in save_decisions.
+                    FitDecision.SKIPPED.value,
+                    listing.company_name,
+                    listing.id,
+                )
                 for listing in listings
             ],
         )
