@@ -40,6 +40,11 @@ SCHEMA = [
         fit_decision        TEXT    NOT NULL DEFAULT 'pending',
         fit_reasoning       TEXT    NOT NULL DEFAULT '',
 
+        -- Stage three: whether this listing has gone out in a digest email.
+        -- Write-once, and only after Resend has accepted the message, so a
+        -- send that fails leaves the listing eligible for tomorrow's digest.
+        sent                INTEGER NOT NULL DEFAULT 0,
+
         PRIMARY KEY (company_name, id)
     )
     """,
@@ -57,6 +62,7 @@ SCHEMA = [
 MIGRATIONS = [
     "ALTER TABLE job_listings ADD COLUMN fit_decision TEXT NOT NULL DEFAULT 'pending'",
     "ALTER TABLE job_listings ADD COLUMN fit_reasoning TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE job_listings ADD COLUMN sent INTEGER NOT NULL DEFAULT 0",
 ]
 
 # One-time corrections to rows that predate a column's meaning. Each must be

@@ -43,7 +43,7 @@ class HackerNewsJob:
     url: str
 
 
-with DAG("test_email", **DAG_ARGS) as dag:
+with DAG(dag_id="test_email", **DAG_ARGS) as dag:
 
     @task
     def fetch_daily_hackernews_jobs() -> list[HackerNewsJob]:
@@ -58,8 +58,6 @@ with DAG("test_email", **DAG_ARGS) as dag:
                 break
             jobs.append(job)
         return jobs
-
-    
 
     @task.agent(
         llm_conn_id=LLM_CONN_ID,

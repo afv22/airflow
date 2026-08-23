@@ -25,6 +25,7 @@ from job_lead_research.sync_watchlist import sync_watchlist
 from job_lead_research.scan_boards import scan_boards
 from job_lead_research.filter_relevance import filter_relevance
 from job_lead_research.filter_fit import filter_fit
+from job_lead_research.send_digest import send_digest
 
 DAG_ARGS = {
     "default_args": {
@@ -48,4 +49,4 @@ with DAG(dag_id="job_lead_research", **DAG_ARGS) as dag:
     boards_scanned = scan_boards()
     sync_watchlist() >> boards_scanned  # type: ignore
     relevance_filtered = filter_relevance(upstream=boards_scanned)
-    filter_fit(upstream=relevance_filtered)
+    filter_fit(upstream=relevance_filtered) >> send_digest()  # type: ignore

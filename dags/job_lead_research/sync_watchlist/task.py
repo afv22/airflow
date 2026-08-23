@@ -8,13 +8,14 @@ pipeline is read-only on the sheet by design.
 Configuration lives in one Airflow Connection (see WATCHLIST_CONN_ID), so the
 credential and the sheet it points at move together and neither is hardcoded.
 """
+
 from datetime import datetime, timezone
 
 from airflow.sdk import Connection, task
 
 from common import gsheets
 from job_lead_research.sync_watchlist import store
-from ..types import Company
+from job_lead_research.types import Company
 
 # Connection holding both the credential and the sheet coordinates. Create it in
 # the Airflow UI (Admin > Connections) as a Generic connection with this extra:
