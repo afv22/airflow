@@ -19,7 +19,7 @@ for the research agent, and the HTML is markup-heavy enough to bury the content.
 
 import requests
 
-from job_lead_research.types import JobListing, RelevanceDecision
+from job_lead_research.types import JobListing
 from .base import ATSScraper
 
 API_ROOT = "https://api.ashbyhq.com/posting-api/job-board"
@@ -71,9 +71,6 @@ class AshbyScraper(ATSScraper):
             or "",
             listing_url=blob.get("jobUrl") or "",
             published_at=blob.get("publishedAt") or "",
-            added_at="",
-            relevance_decision=RelevanceDecision.PENDING,
-            relevance_rejection="",
         )
 
     @staticmethod

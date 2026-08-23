@@ -78,5 +78,4 @@ class GreenhouseScraper(ATSScraper):
             description=as_text(blob.get("content") or ""),
             listing_url=blob.get("absolute_url") or "",
             published_at=blob.get("first_published") or blob.get("updated_at") or "",
-            added_at="",
         )

@@ -86,9 +86,9 @@ class JobListing:
     description: str
     listing_url: str
     published_at: str
-    added_at: str
-    relevance_decision: RelevanceDecision
-    relevance_rejection: str
+    added_at: str = ""
+    relevance_decision: RelevanceDecision = RelevanceDecision.PENDING
+    relevance_rejection: str = ""
 
     @staticmethod
     def load(record: Mapping[str, str]) -> "JobListing":
