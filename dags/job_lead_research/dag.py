@@ -34,9 +34,9 @@ DAG_ARGS = {
         "email_on_failure": True,
         "email_on_retry": False,
     },
-    # Every weekday at 6am UTC (Mon-Fri)
-    "schedule": "0 5 * * 1-5",
-    "start_date": pendulum.datetime(2026, 8, 20, tz="UTC"),
+    # Every weekday at 6am London time (Mon-Fri)
+    "schedule": "0 6 * * 1-5",
+    "start_date": pendulum.datetime(2026, 8, 20, tz="Europe/London"),
     "catchup": False,
     "max_active_runs": 1,
     "tags": ["jobs", "watchlist"],
