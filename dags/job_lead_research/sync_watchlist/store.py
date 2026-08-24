@@ -88,7 +88,7 @@ def active_companies() -> list[Company]:
         """
         SELECT c.name, c.board_url, c.board_type, c.board_slug, c.status, c.notes, c.synced_at
         FROM companies c
-        WHERE c.board_url <> ''
+        WHERE c.board_type <> ''
             AND (TRIM(LOWER(c.status)) = ? OR TRIM(c.status) = '')
         ORDER BY c.name
         """,

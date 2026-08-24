@@ -18,6 +18,7 @@ class ATSProvider(Enum):
     ASHBY = "ashby"
     GREENHOUSE = "greenhouse"
     PINPOINT = "pinpoint"
+    IBM = "ibm"
     LEVER = "lever"
     WORKABLE = "workable"
     OTHER = "other"

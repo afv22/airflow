@@ -25,7 +25,7 @@ RECIPIENT = "andrew.vagliano1@gmail.com"
 # is the point of the stage as much as the selection is: the pool it draws from
 # is everything the fit filter ever passed and never sent, which after the
 # initial sweep could be far more than a useful email.
-DIGEST_SIZE = 5
+DIGEST_SIZE = 4
 
 
 def _subject(listings: list[JobListing]) -> str:
