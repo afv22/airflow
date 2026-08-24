@@ -6,7 +6,7 @@ sharpens. This module only wraps that text in instructions about the output
 contract, so tuning what counts as a good role never means touching Python.
 """
 
-from common.criteria import load_criteria
+from pathlib import Path
 
 INSTRUCTIONS = """\
 You are screening job listings for a candidate, against the criteria document
@@ -43,6 +43,8 @@ and id fields so results can be matched back to their listing.
 
 """
 
+CRITERIA_PATH = Path(__file__).resolve().parent / "criteria.md"
+
 
 def system_prompt() -> str:
     """Return the instructions with the current criteria file appended.
@@ -51,4 +53,4 @@ def system_prompt() -> str:
     picked up by the next DAG run, without the Airflow parser needing to have
     re-imported this module.
     """
-    return INSTRUCTIONS + load_criteria()
+    return INSTRUCTIONS + CRITERIA_PATH.read_text()
