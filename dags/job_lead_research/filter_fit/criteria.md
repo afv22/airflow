@@ -84,9 +84,11 @@ More matches → `strong`.
 | Primary | Python | Strongest match |
 | Secondary | TypeScript / Node, PHP | Full match, no downweight |
 | Familiar | Rust | Recreational only — fine as a secondary language, `review` if primary |
-| Unfamiliar | Go, Java, Kotlin, Scala, C#, Ruby, Elixir, C++ | Downweight, **do not reject**. Mark `review`. |
+| Unfamiliar | Go, Java, Kotlin, Scala, C#, Ruby, Elixir, C++ | Downweight if required, **do not reject**. Mark `review`. |
 
 Infrastructure and tooling mentions (Kubernetes, Airflow, Spark, Kafka, dbt, GCP, AWS, Terraform) are positive signals but never requirements.
+
+Unfamiliar languages should only have negative weight if they are named in the experience requirements. If they are just mentioned in the company's tech stack and the role seems to be asking for language-agnostic candidates, this is weighted neutrally.
 
 ---
 

@@ -43,7 +43,7 @@ DAG_ARGS = {
 }
 
 
-with DAG(dag_id="job_lead_research", **DAG_ARGS) as dag:
+with DAG("job_lead_research", **DAG_ARGS) as dag:  # type: ignore
     # scan_boards reads the companies out of the mirror rather than taking them
     # as an argument, so the dependency is ordering, not data.
     boards_scanned = scan_boards()
