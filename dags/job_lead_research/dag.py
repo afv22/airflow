@@ -1,20 +1,8 @@
 """Job lead research pipeline.
 
-Round 1 in progress: only ``sync_watchlist`` exists so far, so this DAG does
-nothing but mirror the sheet. It is here to give that task a real task context
--- the Task SDK resolves Connections through the execution API, which means a
-connection is only readable from inside a running task, not from a bare
-``python -c`` in the container.
+Pulls job listings from a curated set of companies, determines whether
+they are worth applying to, and sends a digest to the user with matches.
 
-Run it on demand while building:
-
-    airflow dags test job_lead_research
-
-sync_watchlist mirrors the sheet, scan_boards polls each active company's ATS
-through its adapter, filter_relevance runs the coarse LLM pass that clears
-obviously irrelevant listings out of the pending queue, and filter_fit judges
-the survivors against dags/criteria/job_search.md. The digest slots in
-downstream of that.
 """
 
 import pendulum
