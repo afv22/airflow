@@ -25,7 +25,31 @@ RECIPIENT = "andrew.vagliano1@gmail.com"
 # is the point of the stage as much as the selection is: the pool it draws from
 # is everything the fit filter ever passed and never sent, which after the
 # initial sweep could be far more than a useful email.
-DIGEST_SIZE = 4
+#
+# The cap slides with how good the morning is. A full slate of strong listings
+# is a digest on its own -- four of those is already more than a morning's
+# reading. Short of that, review pads the digest out to a larger quota, on the
+# grounds that a weak morning's listings are quicker to triage and a few extra
+# cost little:
+#
+#   0 strong -> 6 review    3 strong -> 3 strong + 3 review
+#   1 strong -> 1 + 5       4 strong -> 4 + 0
+#   2 strong -> 2 + 4
+STRONG_CAP = 4
+PADDED_TOTAL = 4
+
+
+def _quota(strong_available: int) -> tuple[int, int]:
+    """Split the digest into (strong, review) slots for the pool on hand.
+
+    Strong listings take their slots first, up to ``STRONG_CAP``. A digest that
+    fills that cap on strong alone sends nothing else; anything short of it
+    pads from review up to ``PADDED_TOTAL``.
+    """
+    strong = min(strong_available, STRONG_CAP)
+    if strong == STRONG_CAP:
+        return strong, 0
+    return strong, PADDED_TOTAL - strong
 
 
 def _subject(listings: list[JobListing]) -> str:
@@ -47,7 +71,8 @@ def send_digest() -> str:
     :func:`store.mark_sent`: a failed send must leave its listings eligible for
     the next run.
     """
-    listings = store.unsent_listings(DIGEST_SIZE)
+    strong, review = _quota(store.unsent_count(FitDecision.STRONG))
+    listings = store.unsent_listings(strong, review)
     if not listings:
         raise AirflowSkipException("No unsent listings to digest.")
 

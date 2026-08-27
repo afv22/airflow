@@ -18,49 +18,61 @@ COLUMNS = """
 # skipped, error, or a listing still pending a verdict -- is never digested.
 SENDABLE = (FitDecision.STRONG, FitDecision.REVIEW)
 
-# Rank the sendable verdicts in SENDABLE's order, so a digest fills with strong
-# listings and only pads from review once those run out. Built from the tuple
-# above rather than written out, so the two cannot drift apart.
-TIER_ORDER = (
-    "CASE fit_decision "
-    + " ".join(
-        f"WHEN '{decision.value}' THEN {rank}"
-        for rank, decision in enumerate(SENDABLE)
-    )
-    + " END"
-)
+# Newest-first within a verdict. ``published_at`` is a board-supplied string of
+# inconsistent format across adapters, so this is a lexical sort, not a date
+# sort -- good enough for a tiebreak, and ``added_at`` (which the table writes
+# itself) breaks ties under it for listings whose board gave no date at all.
+# After the initial sweep this runs daily, so the pool on any given morning is
+# small enough that within-verdict order barely matters.
+RECENCY = "published_at DESC, added_at DESC"
 
 
-def unsent_listings(limit: int) -> list[JobListing]:
-    """Return up to ``limit`` unsent listings, strong ones first.
+def unsent_count(decision: FitDecision) -> int:
+    """How many unsent listings hold ``decision``.
 
-    Ordered by verdict tier and then newest-first within a tier, so a partial
-    digest is padded out of the ``review`` pool only once every ``strong``
-    listing has taken a slot. ``published_at DESC`` is the tiebreak rather than
-    anything ranked: after the initial sweep this runs daily, so the pool on
-    any given morning is small enough that within-tier order barely matters.
-
-    ``published_at`` is a board-supplied string of inconsistent format across
-    adapters, so this is a lexical sort, not a date sort -- good enough for a
-    tiebreak, and ``added_at`` (which the table writes itself) breaks ties
-    under it for listings whose board gave no date at all.
+    The digest sizes itself off the strong pool before it selects (see
+    :func:`..task._quota`), so it needs the count separately from the rows.
     """
-    decisions = [decision.value for decision in SENDABLE]
-    placeholders = ", ".join("?" for _ in decisions)
+    rows = db.execute(
+        """
+        SELECT COUNT(*) AS n
+        FROM job_listings
+        WHERE sent = 0 AND fit_decision = ?
+        """,
+        (decision.value,),
+    )
+    return rows[0]["n"]
+
+
+def _unsent_by_decision(decision: FitDecision, limit: int) -> list[JobListing]:
+    """The ``limit`` newest unsent listings holding ``decision``."""
+    if limit <= 0:
+        return []
+
     rows = db.execute(
         f"""
         SELECT {COLUMNS}
         FROM job_listings
-        WHERE sent = 0 AND fit_decision IN ({placeholders})
-        ORDER BY
-            {TIER_ORDER},
-            published_at DESC,
-            added_at DESC
+        WHERE sent = 0 AND fit_decision = ?
+        ORDER BY {RECENCY}
         LIMIT ?
         """,
-        (*decisions, limit),
+        (decision.value, limit),
     )
     return [JobListing.load(dict(row)) for row in rows]
+
+
+def unsent_listings(strong: int, review: int) -> list[JobListing]:
+    """Return up to ``strong`` strong and ``review`` review unsent listings.
+
+    The two quotas are drawn independently rather than as one ranked query with
+    a single limit: the caller has already decided how many of each the digest
+    should carry, and a short strong pool must not spill its unused slots into
+    review. Strong listings lead the result, so the email reads best-first.
+    """
+    return _unsent_by_decision(FitDecision.STRONG, strong) + _unsent_by_decision(
+        FitDecision.REVIEW, review
+    )
 
 
 def mark_sent(listings: list[JobListing]) -> int:
