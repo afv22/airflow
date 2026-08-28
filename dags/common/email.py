@@ -5,20 +5,19 @@ import resend
 from airflow.sdk import Variable
 
 RESEND_VAR_KEY = "resend-api-key"
-FROM_ADDRESS = "mainframe@avagliano.me"
 
 
 def send_email(
     to: str | list[str],
     subject: str,
     html: str,
-    from_address: str = FROM_ADDRESS,
+    from_name: str = "mainframe",
 ) -> str:
     """Send an email and return the Resend message id."""
     resend.api_key = Variable.get(RESEND_VAR_KEY)
     response = resend.Emails.send(
         {
-            "from": from_address,
+            "from": f"{from_name}@avagliano.me",
             "to": [to] if isinstance(to, str) else to,
             "subject": subject,
             "html": html,
