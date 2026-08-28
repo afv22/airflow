@@ -27,7 +27,7 @@ LLM_CONN_ID = "openrouter_default"
 # A stronger model than the relevance filter's: this stage is the one making
 # the judgement call the whole pipeline exists to make, and it is reading a
 # full criteria document rather than two bullet points.
-MODEL_ID = "openrouter:z-ai/glm-5.2"
+MODEL_ID = "openrouter:z-ai/glm-5.3-flash"
 
 # Smaller than the relevance filter's chunk. Every call carries the whole
 # criteria file (~7KB) on top of the descriptions, and the judgement is more
