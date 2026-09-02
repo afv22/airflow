@@ -13,12 +13,14 @@ from .ashby import AshbyScraper
 from .greenhouse import GreenhouseScraper
 from .ibm import IBMScraper
 from .pinpoint import PinpointScraper
+from .workable import WorkableScraper
 
 SCRAPERS: dict[ATSProvider, type[ATSScraper]] = {
     ATSProvider.ASHBY: AshbyScraper,
     ATSProvider.GREENHOUSE: GreenhouseScraper,
     ATSProvider.PINPOINT: PinpointScraper,
     ATSProvider.IBM: IBMScraper,
+    ATSProvider.WORKABLE: WorkableScraper,
 }
 
 
@@ -33,6 +35,7 @@ __all__ = [
     "GreenhouseScraper",
     "IBMScraper",
     "PinpointScraper",
+    "WorkableScraper",
     "SCRAPERS",
     "scraper_for",
 ]
