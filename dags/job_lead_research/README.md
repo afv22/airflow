@@ -24,6 +24,13 @@ Broadly, I want to wake up in the morning with a headstart and be able to make d
 
 #### Relevance and Fit Analysis
 
+#### Onboarding Report
+
+The first time a company's board scrapes clean, its entire backlog of passing
+roles goes out as one email rather than trickling through the capped daily
+digest over a week. One cluster, strong and review sections labelled, seen once
+and sifted in a sitting.
+
 #### Daily Digest
 
 ## Results

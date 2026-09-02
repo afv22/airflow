@@ -1,7 +1,9 @@
 """Job lead research pipeline.
 
 Pulls job listings from a curated set of companies, determines whether
-they are worth applying to, and sends a digest to the user with matches.
+they are worth applying to, and mails them out: a newly tracked company's
+whole board as a one-off onboarding report, everything after that as the
+daily digest.
 
 """
 
@@ -13,6 +15,7 @@ from job_lead_research.sync_watchlist import sync_watchlist
 from job_lead_research.scan_boards import scan_boards
 from job_lead_research.filter_relevance import filter_relevance
 from job_lead_research.filter_fit import filter_fit
+from job_lead_research.send_onboarding import send_onboarding_report
 from job_lead_research.send_digest import send_digest
 
 DAG_ARGS = {
@@ -37,4 +40,11 @@ with DAG("job_lead_research", **DAG_ARGS) as dag:  # type: ignore
     boards_scanned = scan_boards()
     sync_watchlist() >> boards_scanned  # type: ignore
     relevance_filtered = filter_relevance(upstream=boards_scanned)
-    filter_fit(upstream=relevance_filtered) >> send_digest()  # type: ignore
+    # The report runs before the digest rather than beside it: it marks its
+    # listings sent, and the digest's pool is whatever is still unsent, so
+    # parallel tasks would race over the same rows. Most mornings no company is
+    # owed a report and the task skips, which is why the digest is
+    # none_failed -- under the default all_success that skip would cascade and
+    # the digest would never send.
+    fit_done = filter_fit(upstream=relevance_filtered)
+    fit_done >> send_onboarding_report() >> send_digest()  # type: ignore

@@ -58,7 +58,10 @@ def _subject(listings: list[JobListing]) -> str:
     return f"{len(listings)} new job {lead} — {date.today():%d %b}"
 
 
-@task
+# ``none_failed`` rather than the default: the onboarding report immediately
+# upstream skips on every morning no new company is owed a report, which is
+# most of them, and an all_success digest would skip along with it.
+@task(trigger_rule="none_failed")
 def send_digest() -> str:
     """Mail the top unsent listings and mark them sent.
 
