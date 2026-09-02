@@ -13,6 +13,8 @@ the overhead of a separate call per listing. Each chunk becomes one mapped
 task instance via ``.expand()``.
 """
 
+from datetime import timedelta
+
 from airflow.sdk import task
 
 from job_lead_research.filter_relevance import store
@@ -54,6 +56,15 @@ def _format_listing(listing: dict) -> str:
     # producing task's process knows how to deserialize.
     output_type=RelevanceResults,
     serialize_output=True,
+    # 120s HTTP timeout instead of the stack's 600s default, so a dead
+    # connection is retried in two minutes rather than pinning the task for
+    # ten -- see the fit stage's judge_fit for the full story.
+    agent_params={"model_settings": {"timeout": 120}},
+    # Backstop: fail rather than hold a worker slot if every HTTP attempt
+    # hangs; unjudged listings stay pending, so the retry re-pays for this
+    # chunk only.
+    execution_timeout=timedelta(minutes=10),
+    retries=2,
 )
 def judge_listings(chunk: list[dict]) -> str:
     """Return the prompt; the LLM's parsed reply becomes this task's XCom.

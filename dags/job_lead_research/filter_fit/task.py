@@ -13,6 +13,8 @@ The reasoning behind that shape is documented on ``get_pending_chunks`` there
 and applies here unchanged.
 """
 
+from datetime import timedelta
+
 from airflow.sdk import task
 
 from job_lead_research.filter_fit import store
@@ -58,6 +60,19 @@ def _format_listing(listing: dict) -> str:
     # reason documented on FitResults.
     output_type=FitResults,
     serialize_output=True,
+    # The stack's default HTTP read timeout is 600s, so a dead connection --
+    # OpenRouter answered but the response never made it back through the
+    # Docker network -- pins the task for 10 minutes per attempt before the
+    # OpenAI SDK silently retries. A chunk this size finishes in well under
+    # two minutes, so time out at 120s and let the retry fire on a fresh
+    # connection instead.
+    agent_params={"model_settings": {"timeout": 120}},
+    # Backstop for the pathological case where every HTTP attempt hangs:
+    # kill the task rather than hold a worker slot, and let Airflow re-run
+    # it. Unjudged listings stay pending (see save_verdicts), so a retry
+    # only re-pays for this one chunk.
+    execution_timeout=timedelta(minutes=10),
+    retries=2,
 )
 def judge_fit(chunk: list[dict]) -> str:
     """Return the prompt; the LLM's parsed reply becomes this task's XCom.
