@@ -11,13 +11,13 @@ def send_email(
     to: str | list[str],
     subject: str,
     html: str,
-    from_name: str = "mainframe",
+    name: str = "Mainframe",
 ) -> str:
     """Send an email and return the Resend message id."""
     resend.api_key = Variable.get(RESEND_VAR_KEY)
     response = resend.Emails.send(
         {
-            "from": f"{from_name}@avagliano.me",
+            "from": f"{name} <mainframe@avagliano.me>",
             "to": [to] if isinstance(to, str) else to,
             "subject": subject,
             "html": html,

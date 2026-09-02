@@ -21,6 +21,7 @@ class ATSProvider(Enum):
     IBM = "ibm"
     LEVER = "lever"
     WORKABLE = "workable"
+    AVATURE = "avature"
     OTHER = "other"
 
 

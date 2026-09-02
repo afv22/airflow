@@ -77,7 +77,7 @@ def _report_on(company_name: str) -> bool:
         return False
 
     message_id = send_email(
-        from_name="job-leads",
+        name="Job Leads",
         to=RECIPIENT,
         subject=_subject(company_name, listings),
         html=template.render(company_name, listings),

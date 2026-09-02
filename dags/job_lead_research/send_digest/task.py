@@ -80,7 +80,7 @@ def send_digest() -> str:
         raise AirflowSkipException("No unsent listings to digest.")
 
     message_id = send_email(
-        from_name="job-leads",
+        name="Job Leads",
         to=RECIPIENT,
         subject=_subject(listings),
         html=template.render(listings),

@@ -10,6 +10,7 @@ the scan report "no scraper yet" instead of failing.
 from job_lead_research.types import ATSProvider
 from .base import ATSScraper
 from .ashby import AshbyScraper
+from .avature import AvatureScraper
 from .greenhouse import GreenhouseScraper
 from .ibm import IBMScraper
 from .pinpoint import PinpointScraper
@@ -21,6 +22,7 @@ SCRAPERS: dict[ATSProvider, type[ATSScraper]] = {
     ATSProvider.PINPOINT: PinpointScraper,
     ATSProvider.IBM: IBMScraper,
     ATSProvider.WORKABLE: WorkableScraper,
+    ATSProvider.AVATURE: AvatureScraper,
 }
 
 
@@ -32,6 +34,7 @@ def scraper_for(board_type: ATSProvider) -> type[ATSScraper] | None:
 __all__ = [
     "ATSScraper",
     "AshbyScraper",
+    "AvatureScraper",
     "GreenhouseScraper",
     "IBMScraper",
     "PinpointScraper",
