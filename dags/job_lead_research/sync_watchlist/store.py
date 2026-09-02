@@ -8,11 +8,10 @@ Two tables with deliberately different ownership:
     what makes it replaceable: if the mirror is wrong, the next run fixes it.
 
 ``company_scan_state``
-    Pipeline-owned scan bookkeeping (when a board was last scanned, whether the
-    last scan succeeded), keyed by company name. Kept separate precisely so the
-    rewrite above cannot destroy it. Rows are allowed to outlive their company:
-    a name removed from the sheet and later re-added keeps its history, and a
-    stale row costs one unused row.
+    Pipeline-owned scan bookkeeping, keyed by company name. Kept separate
+    precisely so the rewrite above cannot destroy it. Rows are allowed to
+    outlive their company: a name removed from the sheet and later re-added
+    keeps its history, and a stale row costs one unused row.
 """
 
 from common import db
@@ -28,6 +27,22 @@ SCHEMA = [
         status      TEXT,
         notes       TEXT,
         synced_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS company_scan_state (
+        company_name        TEXT    NOT NULL PRIMARY KEY,
+
+        -- Written once, by scan_boards, the first time a company's board
+        -- scrapes without raising. NULL means the board has never been read:
+        -- a typo'd slug or an unsupported ATS type leaves it that way, which is
+        -- what makes "not yet scanned" and "scanned, nothing found" distinct.
+        first_scanned_at    TEXT,
+
+        -- Written by send_onboarding_report once the company's opening report
+        -- has been dealt with. NULL alongside a non-NULL first_scanned_at is
+        -- exactly the set of companies still owed a report.
+        onboarded_at        TEXT
     )
     """,
 ]
@@ -95,3 +110,34 @@ def active_companies() -> list[Company]:
         (STATUS_ACTIVE,),
     )
     return [Company.load(dict(row)) for row in rows]
+
+
+def mark_first_scanned(company_name: str) -> None:
+    """Stamp ``first_scanned_at`` for a company whose board has just scraped.
+
+    Write-once: the insert claims the row, and the update only fills a stamp
+    that is still NULL, so the value stays the first successful scan rather
+    than the most recent one. That is what the onboarding report keys off --
+    a stamp that moved with every scan would say nothing about when the
+    company entered the pipeline.
+
+    Called after a scrape returns without raising, including one that returned
+    zero listings: an empty board is a board we successfully read.
+    """
+    with db.session() as conn:
+        conn.execute(
+            """
+            INSERT INTO company_scan_state (company_name)
+            VALUES (?)
+            ON CONFLICT (company_name) DO NOTHING
+            """,
+            (company_name,),
+        )
+        conn.execute(
+            """
+            UPDATE company_scan_state
+            SET first_scanned_at = datetime('now')
+            WHERE company_name = ? AND first_scanned_at IS NULL
+            """,
+            (company_name,),
+        )

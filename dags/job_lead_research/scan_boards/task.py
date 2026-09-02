@@ -14,7 +14,7 @@ from airflow.sdk import task
 
 from job_lead_research.scan_boards import store
 from job_lead_research.scan_boards.scrapers import scraper_for
-from job_lead_research.sync_watchlist.store import active_companies
+from job_lead_research.sync_watchlist.store import active_companies, mark_first_scanned
 
 
 @task
@@ -46,6 +46,11 @@ def scan_boards() -> int:
         except Exception as error:
             failed.append(f"{company.name}: {error}")
             continue
+
+        # Stamped only on the success path: a company whose board failed or has
+        # no scraper stays unstamped, and so stays a candidate for its opening
+        # report whenever the board first reads clean.
+        mark_first_scanned(company.name)
 
         total_new += new
         scanned += 1
