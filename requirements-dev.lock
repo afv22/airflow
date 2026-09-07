@@ -51,7 +51,7 @@ apache-airflow-core==3.3.0
     #   apache-airflow
     #   apache-airflow-task-sdk
 apache-airflow-providers-common-ai==0.7.0
-    # via -r ../../config/docker/airflow/requirements.txt
+    # via -r requirements-dev.txt
 apache-airflow-providers-common-compat==1.15.0
     # via
     #   -c /tmp/constraints-filtered.txt
@@ -118,7 +118,7 @@ beartype==0.22.9
 beautifulsoup4==4.15.0
     # via
     #   -c /tmp/constraints-filtered.txt
-    #   -r ../../config/docker/airflow/requirements.txt
+    #   -r requirements-dev.txt
 cachetools==7.1.4
     # via
     #   -c /tmp/constraints-filtered.txt
@@ -218,11 +218,11 @@ google-api-core==2.31.0
 google-api-python-client==2.198.0
     # via
     #   -c /tmp/constraints-filtered.txt
-    #   -r ../../config/docker/airflow/requirements.txt
+    #   -r requirements-dev.txt
 google-auth==2.55.1
     # via
     #   -c /tmp/constraints-filtered.txt
-    #   -r ../../config/docker/airflow/requirements.txt
+    #   -r requirements-dev.txt
     #   google-api-core
     #   google-api-python-client
     #   google-auth-httplib2
@@ -626,7 +626,7 @@ requests==2.34.2
     #   opentelemetry-exporter-otlp-proto-http
     #   resend
 resend==2.35.0
-    # via -r ../../config/docker/airflow/requirements.txt
+    # via -r requirements-dev.txt
 rich==13.9.4
     # via
     #   -c /tmp/constraints-filtered.txt
