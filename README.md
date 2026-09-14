@@ -1,6 +1,6 @@
-# Airflow
+# My Airflow DAGs
 
-Pipelines run by my personal Airflow instance.
+Details are included in project READMEs.
 
 ## Projects
 
