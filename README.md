@@ -1,5 +1,7 @@
 # My Airflow DAGs
 
+Workflows and pipelines to structure my daily life.
+
 Details are included in project READMEs.
 
 ## Projects
