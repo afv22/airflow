@@ -166,21 +166,3 @@ def get_pending_chunks() -> list[list[dict]]:
         for listing in store.pending_listings()
     ]
     return [listings[i : i + CHUNK_SIZE] for i in range(0, len(listings), CHUNK_SIZE)]
-
-
-def filter_fit(upstream=None):
-    """Judge every fit-pending listing, in chunks, and write verdicts back.
-
-    ``upstream`` is the task (or XComArg) that should finish before this group
-    starts reading ``job_listings`` -- normally the relevance stage, which is
-    what puts listings into the ``pending`` fit state. Composing with ``>>``
-    only wires an edge to whatever this function *returns*, so without an
-    explicit dependency here ``get_pending_chunks`` would have no upstream at
-    all and could run before the filter that populates its queue.
-    """
-    chunks = get_pending_chunks()
-    if upstream is not None:
-        upstream >> chunks  # type: ignore
-
-    results = judge_fit.expand(chunk=chunks)  # type: ignore
-    return save_verdicts(chunks, results)  # type: ignore

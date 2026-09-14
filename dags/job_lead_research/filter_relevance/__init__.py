@@ -1,3 +1,3 @@
-from .task import filter_relevance
+from .task import get_pending_chunks, judge_listings, save_verdicts
 
-__all__ = ["filter_relevance"]
+__all__ = ["get_pending_chunks", "judge_listings", "save_verdicts"]

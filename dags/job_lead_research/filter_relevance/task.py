@@ -151,21 +151,3 @@ def get_pending_chunks() -> list[list[dict]]:
         for listing in store.pending_listings()
     ]
     return [listings[i : i + CHUNK_SIZE] for i in range(0, len(listings), CHUNK_SIZE)]
-
-
-def filter_relevance(upstream=None):
-    """Judge every pending listing, in chunks, and write verdicts back.
-
-    ``upstream`` is the task (or XComArg) that should finish before this group
-    starts reading ``job_listings`` -- e.g. ``scan_boards()``. Composing tasks
-    with ``>>`` only wires an edge to whatever this function *returns*
-    (``save_verdicts``), so without an explicit dependency here,
-    ``get_pending_chunks`` would have no upstream at all and could run before
-    the scan that populates the table it reads.
-    """
-    chunks = get_pending_chunks()
-    if upstream is not None:
-        upstream >> chunks  # type: ignore
-
-    results = judge_listings.expand(chunk=chunks)  # type: ignore
-    return save_verdicts(chunks, results)  # type: ignore
