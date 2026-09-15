@@ -13,7 +13,7 @@ place at the bottom of this file.
 
 import pendulum
 
-from airflow.sdk import DAG, chain
+from airflow.sdk import DAG, Param, chain
 
 from job_lead_research.filter_fit import filter_fit
 from job_lead_research.filter_relevance import filter_relevance
@@ -35,6 +35,13 @@ DAG_ARGS = {
     "catchup": False,
     "max_active_runs": 1,
     "tags": ["jobs", "watchlist"],
+    "params": {
+        "force_rescan": Param(
+            False,
+            type="boolean",
+            description="Scan every board even if it was scanned today.",
+        ),
+    },
 }
 
 

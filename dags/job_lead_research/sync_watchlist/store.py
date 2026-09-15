@@ -14,6 +14,8 @@ Two tables with deliberately different ownership:
     keeps its history, and a stale row costs one unused row.
 """
 
+import sqlite3
+
 from common import db
 from ..types import Company
 
@@ -42,9 +44,22 @@ SCHEMA = [
         -- Written by send_onboarding_report once the company's opening report
         -- has been dealt with. NULL alongside a non-NULL first_scanned_at is
         -- exactly the set of companies still owed a report.
-        onboarded_at        TEXT
+        onboarded_at        TEXT,
+
+        -- Moved forward by scan_boards on every successful scrape, unlike the
+        -- write-once stamp above. This is what the same-day skip reads, so it
+        -- deliberately tracks the most recent read rather than the first.
+        last_scanned_at     TEXT
     )
     """,
+]
+
+# init_schema only runs CREATE TABLE IF NOT EXISTS, which does nothing to a
+# table that already exists, so columns added to the DDL above have to be
+# backfilled onto deployed databases separately. SQLite has no ALTER TABLE IF
+# NOT EXISTS; the duplicate-column error is the "already applied" signal.
+MIGRATIONS = [
+    "ALTER TABLE company_scan_state ADD COLUMN last_scanned_at TEXT",
 ]
 
 # Only companies in this state are handed to the board scanner. Anything else
@@ -54,8 +69,15 @@ STATUS_ACTIVE = "active"
 
 
 def init_schema() -> None:
-    """Create the tables if they are not already there."""
+    """Create the tables if they are not already there, and apply migrations."""
     db.init_schema(SCHEMA)
+
+    for statement in MIGRATIONS:
+        try:
+            db.execute(statement)
+        except sqlite3.OperationalError as error:
+            if "duplicate column name" not in str(error):
+                raise
 
 
 def replace_companies(companies: list[Company]) -> int:
@@ -112,14 +134,16 @@ def active_companies() -> list[Company]:
     return [Company.load(dict(row)) for row in rows]
 
 
-def mark_first_scanned(company_name: str) -> None:
-    """Stamp ``first_scanned_at`` for a company whose board has just scraped.
+def mark_scanned(company_name: str) -> None:
+    """Record a successful scrape of a company's board.
 
-    Write-once: the insert claims the row, and the update only fills a stamp
-    that is still NULL, so the value stays the first successful scan rather
-    than the most recent one. That is what the onboarding report keys off --
-    a stamp that moved with every scan would say nothing about when the
-    company entered the pipeline.
+    Writes two stamps with deliberately different rules. ``first_scanned_at``
+    is write-once -- the update only fills a value that is still NULL, so it
+    stays the first successful scan rather than the most recent one. That is
+    what the onboarding report keys off, and a stamp that moved with every scan
+    would say nothing about when the company entered the pipeline.
+    ``last_scanned_at`` moves forward every time, and is what the same-day skip
+    in :func:`scanned_since` reads.
 
     Called after a scrape returns without raising, including one that returned
     zero listings: an empty board is a board we successfully read.
@@ -136,8 +160,28 @@ def mark_first_scanned(company_name: str) -> None:
         conn.execute(
             """
             UPDATE company_scan_state
-            SET first_scanned_at = datetime('now')
-            WHERE company_name = ? AND first_scanned_at IS NULL
+            SET first_scanned_at = COALESCE(first_scanned_at, datetime('now')),
+                last_scanned_at = datetime('now')
+            WHERE company_name = ?
             """,
             (company_name,),
         )
+
+
+def scanned_since(cutoff_hours: float) -> set[str]:
+    """Return the companies whose boards scraped cleanly within ``cutoff_hours``.
+
+    A set of names rather than a per-company check so the scan does one query
+    instead of one per company. Companies with no row, or a row predating the
+    cutoff, are simply absent -- the caller treats absence as "scan it".
+    """
+    rows = db.execute(
+        """
+        SELECT company_name
+        FROM company_scan_state
+        WHERE last_scanned_at IS NOT NULL
+            AND last_scanned_at > datetime('now', ?)
+        """,
+        (f"-{cutoff_hours} hours",),
+    )
+    return {row["company_name"] for row in rows}
