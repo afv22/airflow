@@ -47,13 +47,13 @@ with DAG("job_lead_research", **DAG_ARGS) as dag:  # type: ignore
     # chunks, judge the chunks in parallel, then write every verdict back in
     # one task. The snapshot is what the previous stage has to finish before,
     # and the save is what the next stage has to wait for.
-    relevance_total_saved = filter_relevance.execute()
-    chain(boards_scanned, relevance_total_saved)
+    relevance_results = filter_relevance.execute()
+    chain(boards_scanned, relevance_results)
 
     fit_chunks = filter_fit.get_pending_chunks()
     fit_verdicts = filter_fit.judge_fit.expand(chunk=fit_chunks)
     fit_total_saved = filter_fit.save_verdicts(fit_chunks, fit_verdicts)  # type: ignore
-    chain(relevance_total_saved, fit_chunks, fit_verdicts, fit_total_saved)
+    chain(relevance_results, fit_chunks, fit_verdicts, fit_total_saved)
 
     # The onboarding report sits upstream of the digest rather than beside it:
     # it marks its listings sent, and the digest's pool is whatever is still
