@@ -2,8 +2,8 @@
 
 Where ``filter_relevance`` asks only "is this plausibly a UK software
 engineering role", this stage asks the expensive question: is it a role worth
-Andrew's time, judged against ``dags/criteria/job_search.md``. That means a
-smarter model, a much larger system prompt (the criteria file travels with
+Andrew's time, judged against the ``job-criteria`` Airflow Variable. That means
+a smarter model, a much larger system prompt (the criteria document travels with
 every call), and a three-way verdict -- ``strong`` / ``review`` / ``reject`` --
 so the digest can lead with what deserves attention first.
 
@@ -28,7 +28,7 @@ from job_lead_research.types import FitResults, JobListing
 MODEL_ID = "z-ai/glm-5.3-flash"
 
 # Smaller than the relevance filter's chunk. Every call carries the whole
-# criteria file (~7KB) on top of the descriptions, and the judgement is more
+# criteria document (~7KB) on top of the descriptions, and the judgement is more
 # careful per listing, so the batch stays small enough that no one listing gets
 # skimmed.
 CHUNK_SIZE = 3

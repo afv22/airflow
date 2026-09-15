@@ -82,7 +82,7 @@ class RelevanceDecision(Enum):
 
 
 class FitDecision(Enum):
-    """How well a listing matches the criteria in ``dags/criteria/job_search.md``.
+    """How well a listing matches the criteria in the ``job-criteria`` Variable.
 
     Three real verdicts rather than a boolean, so the digest can be ordered by
     how much attention a listing deserves: ``STRONG`` is worth reading first,

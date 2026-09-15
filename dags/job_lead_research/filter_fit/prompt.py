@@ -1,12 +1,12 @@
 """System prompt for the fit filter.
 
-The criteria themselves are not written here: they live in
-``dags/criteria/job_search.md``, which Andrew edits directly as the search
+The criteria themselves are not written here: they live in the ``job-criteria``
+Airflow Variable, which Andrew edits from Admin -> Variables as the search
 sharpens. This module only wraps that text in instructions about the output
 contract, so tuning what counts as a good role never means touching Python.
 """
 
-from pathlib import Path
+from airflow.models import Variable
 
 INSTRUCTIONS = """\
 You are screening job listings for a candidate, against the criteria document
@@ -43,14 +43,14 @@ and id fields so results can be matched back to their listing.
 
 """
 
-CRITERIA_PATH = Path(__file__).resolve().parent / "criteria.md"
+CRITERIA_VARIABLE = "job-criteria"
 
 
 def system_prompt() -> str:
-    """Return the instructions with the current criteria file appended.
+    """Return the instructions with the current criteria document appended.
 
-    Read at call time rather than at import so an edit to the criteria file is
-    picked up by the next DAG run, without the Airflow parser needing to have
-    re-imported this module.
+    Read at call time rather than at import so an edit to the Variable is
+    picked up by the next DAG run, and so DAG parsing never touches the
+    metadata DB.
     """
-    return INSTRUCTIONS + CRITERIA_PATH.read_text()
+    return INSTRUCTIONS + Variable.get(CRITERIA_VARIABLE)

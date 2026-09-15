@@ -34,7 +34,7 @@ SCHEMA = [
         relevance_decision  TEXT    NOT NULL DEFAULT 'pending',
         relevance_rejection TEXT    NOT NULL DEFAULT '',
 
-        -- Stage two: the careful judgement against dags/criteria/job_search.md,
+        -- Stage two: the careful judgement against the job-criteria Variable,
         -- run only on listings stage one passed. 'skipped' is written for the
         -- rest, by the relevance stage itself.
         fit_decision        TEXT    NOT NULL DEFAULT 'pending',

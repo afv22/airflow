@@ -9,7 +9,7 @@ routine is not.
 
 Today the pipeline is a single Airflow DAG (`job_research`): fetch the
 HackerNews jobs board, have a Playwright-equipped agent research each listing
-against `dags/criteria/job_search.md`, store verdicts in SQLite, email a
+against the `job-criteria` Airflow Variable, store verdicts in SQLite, email a
 digest. This document describes where it goes from there.
 
 ---
