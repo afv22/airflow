@@ -22,10 +22,10 @@ def pending_listings() -> list[JobListing]:
                listing_url, published_at, added_at,
                relevance_decision, relevance_rejection
         FROM job_listings
-        WHERE relevance_decision = ?
+        WHERE relevance_decision IN (?, ?)
         ORDER BY company_name, id
         """,
-        (RelevanceDecision.PENDING.value,),
+        (RelevanceDecision.PENDING.value, RelevanceDecision.ERROR.value),
     )
     return [JobListing.load(dict(row)) for row in rows]
 

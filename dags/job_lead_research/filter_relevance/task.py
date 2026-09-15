@@ -9,23 +9,22 @@ through rather than reject them.
 Pending listings are judged in small batches rather than one call per listing
 or one call for the whole day: descriptions are often long and formatted, so
 a handful per prompt keeps each call's context reasonable while still saving
-the overhead of a separate call per listing. Each chunk becomes one mapped
-task instance via ``.expand()``.
+the overhead of a separate call per listing.
 """
 
-from datetime import timedelta
-
-from airflow.sdk import task
+from airflow.sdk import BaseHook, task
+from pydantic_ai import Agent, ModelSettings
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 from job_lead_research.filter_relevance import store
 from job_lead_research.filter_relevance.prompt import SYSTEM_PROMPT
-from job_lead_research.prompting import escape_jinja
-from job_lead_research.types import RelevanceResult, RelevanceResults
+from job_lead_research.types import JobListing, RelevanceResults
 
 # Connection of type "Pydantic AI" (conn_type: pydanticai) holding the
 # OpenRouter API key -- same connection used in dags/test_email.py.
 LLM_CONN_ID = "openrouter_default"
-MODEL_ID = "openrouter:deepseek/deepseek-v4-flash-0731"
+MODEL_ID = "deepseek/deepseek-v4-flash-0731"
 
 # How many listings go into one LLM call. Descriptions can be long and
 # formatted, so this stays small rather than trying to fit the whole day's
@@ -33,121 +32,49 @@ MODEL_ID = "openrouter:deepseek/deepseek-v4-flash-0731"
 CHUNK_SIZE = 5
 
 
-def _format_listing(listing: dict) -> str:
-    """Format an already Jinja-escaped listing dict (see ``get_pending_chunks``)."""
+def format_listing(listing: JobListing) -> str:
     return (
-        f"company_name: {listing['company_name']}\n"
-        f"id: {listing['id']}\n"
-        f"title: {listing['title']}\n"
-        f"location: {listing['location']}\n"
-        f"description: {listing['description']}\n"
+        f"company_name: {listing.company_name}\n"
+        f"id: {listing.id}\n"
+        f"title: {listing.title}\n"
+        f"location: {listing.location}\n"
+        f"description: {listing.description}\n"
     )
 
 
-@task.llm(
-    llm_conn_id=LLM_CONN_ID,
-    model_id=MODEL_ID,
-    system_prompt=SYSTEM_PROMPT,
-    # A single top-level model rather than list[RelevanceResult]: LLMOperator's
-    # serialize_output only dumps to a dict when the output itself is a
-    # BaseModel instance, which a bare list of models never is. Wrapping the
-    # list in one model gives serialize_output something to act on, so a
-    # plain dict crosses XCom instead of a raw RelevanceResult that only the
-    # producing task's process knows how to deserialize.
-    output_type=RelevanceResults,
-    serialize_output=True,
-    # 120s HTTP timeout instead of the stack's 600s default, so a dead
-    # connection is retried in two minutes rather than pinning the task for
-    # ten -- see the fit stage's judge_fit for the full story.
-    agent_params={"model_settings": {"timeout": 120}},
-    # Backstop: fail rather than hold a worker slot if every HTTP attempt
-    # hangs; unjudged listings stay pending, so the retry re-pays for this
-    # chunk only.
-    execution_timeout=timedelta(minutes=10),
-    retries=2,
-)
-def judge_listings(chunk: list[dict]) -> str:
-    """Return the prompt; the LLM's parsed reply becomes this task's XCom.
-
-    ``chunk`` is already Jinja-escaped by :func:`get_pending_chunks` -- safe to
-    pass straight through ``op_kwargs``, which Airflow always renders through
-    Jinja before this callable runs.
-    """
-    listing_blocks = "\n---\n".join(_format_listing(listing) for listing in chunk)
-    return f"Judge the following {len(chunk)} job listings:\n\n{listing_blocks}"
+def format_listings(listings: list[JobListing]) -> str:
+    blocks = "\n---\n".join(format_listing(l) for l in listings)
+    return f"Judge the following {len(listings)} job listings:\n\n{blocks}"
 
 
-@task(trigger_rule="all_done")
-def save_verdicts(chunks: list[list[dict]], results: list[dict]) -> int:
-    """Persist every chunk's verdicts, and log anything left unjudged.
-
-    A listing whose verdict never lands here -- because it was dropped from
-    its chunk's reply, or because the whole chunk's LLM call failed -- is left
-    ``pending`` and picked up again next run, rather than silently marked
-    either way.
-
-    ``trigger_rule="all_done"`` rather than the default ``all_success``: the
-    upstream is a mapped task, and under ``all_success`` a single failing
-    chunk skips this task entirely, discarding the verdicts every *other*
-    chunk paid an LLM call to produce. Failed map instances are absent from
-    ``results`` rather than present as ``None``, so the batch saves whatever
-    arrived and the rest stays pending.
-    """
-    verdicts = [
-        RelevanceResult(**result)
-        for chunk_result in results
-        for result in chunk_result["results"]
-    ]
-    saved = store.save_decisions(verdicts)
-    listings = [listing for chunk in chunks for listing in chunk]
-    passed = sum(1 for v in verdicts if v.relevant)
-    print(
-        f"Judged {saved} of {len(listings)} pending listings: "
-        f"{passed} passed, {saved - passed} rejected."
+def _agent() -> Agent[None, RelevanceResults]:
+    conn = BaseHook.get_connection(LLM_CONN_ID)
+    model = OpenRouterModel(
+        MODEL_ID, provider=OpenRouterProvider(api_key=conn.password)
     )
-
-    judged_keys = {(v.company_name, v.id) for v in verdicts}
-    missing = [
-        listing
-        for listing in listings
-        if (listing["company_name"], listing["id"]) not in judged_keys
-    ]
-    if missing:
-        print(f"{len(missing)} listings got no verdict and remain pending.")
-
-    return saved
+    return Agent(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        output_type=RelevanceResults,
+        model_settings=ModelSettings(timeout=120),
+    )
 
 
 @task
-def get_pending_chunks() -> list[list[dict]]:
-    """A one-time snapshot of pending listings, batched into ``CHUNK_SIZE``
-    groups and Jinja-escaped, ready to hand straight to ``judge_listings``.
-
-    Taken once here rather than re-queried inside each mapped task: a mapped
-    ``judge_listings`` instance and ``save_verdicts`` used to each call
-    ``store.pending_listings()`` independently, and since ``save_verdicts``
-    writes verdicts back to the same ``pending`` rows this stage reads, a
-    chunk count computed against one query could go stale by the time another
-    task re-queried -- observed as an ``IndexError`` when a later chunk's
-    listings had already been judged and removed from the pending set out
-    from under it. One snapshot, threaded through XCom, removes the race
-    instead of just narrowing it.
-
-    Plain dicts rather than ``JobListing`` dataclasses: ``relevance_decision``
-    is an enum, and Airflow's default XCom serde cannot round-trip an enum
-    field on a dataclass.
-    """
-    listings = [
-        {
-            # company_name and id are exact-match keys used to write verdicts
-            # back to the row -- left unescaped so the LLM echoes them back
-            # byte-for-byte; only free text the LLM merely reads gets escaped.
-            "company_name": listing.company_name,
-            "id": listing.id,
-            "title": escape_jinja(listing.title),
-            "location": escape_jinja(listing.location),
-            "description": escape_jinja(listing.description),
-        }
-        for listing in store.pending_listings()
+def filter_relevance():
+    listings = store.pending_listings()
+    listing_batches = [
+        listings[i : i + CHUNK_SIZE] for i in range(0, len(listings), CHUNK_SIZE)
     ]
-    return [listings[i : i + CHUNK_SIZE] for i in range(0, len(listings), CHUNK_SIZE)]
+
+    agent = _agent()
+    for batch in listing_batches:
+        prompt = format_listings(batch)
+        try:
+            verdicts = agent.run_sync(prompt).output
+        except Exception as e:
+            # TODO: Add retries
+            print(f"batch failed: {e!r}")
+            store.mark_errored(batch, str(e))
+            continue
+        store.save_decisions(verdicts.results)
