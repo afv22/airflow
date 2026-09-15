@@ -1,3 +1,3 @@
-from .task import filter_relevance as execute
+from .task import filter_relevance 
 
-__all__ = ["execute"]
+__all__ = ["filter_relevance"]

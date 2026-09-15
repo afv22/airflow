@@ -14,18 +14,15 @@ the overhead of a separate call per listing.
 
 import asyncio
 
-from airflow.sdk import BaseHook, task
+from airflow.sdk import task
 from pydantic_ai import Agent, ModelSettings
 from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
 
+from common.openrouter import provider
 from job_lead_research.filter_relevance import store
 from job_lead_research.filter_relevance.prompt import SYSTEM_PROMPT
 from job_lead_research.types import JobListing, RelevanceResults
 
-# Connection of type "Pydantic AI" (conn_type: pydanticai) holding the
-# OpenRouter API key -- same connection used in dags/test_email.py.
-LLM_CONN_ID = "openrouter_default"
 MODEL_ID = "deepseek/deepseek-v4-flash-0731"
 
 # How many listings go into one LLM call. Descriptions can be long and
@@ -34,6 +31,16 @@ MODEL_ID = "deepseek/deepseek-v4-flash-0731"
 CHUNK_SIZE = 5
 
 MAX_CONCURRENCY = 4
+
+
+def _agent() -> Agent[None, RelevanceResults]:
+    model = OpenRouterModel(MODEL_ID, provider=provider())
+    return Agent(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        output_type=RelevanceResults,
+        model_settings=ModelSettings(timeout=60),
+    )
 
 
 def format_listing(listing: JobListing) -> str:
@@ -49,19 +56,6 @@ def format_listing(listing: JobListing) -> str:
 def format_listings(listings: list[JobListing]) -> str:
     blocks = "\n---\n".join(format_listing(l) for l in listings)
     return f"Judge the following {len(listings)} job listings:\n\n{blocks}"
-
-
-def _agent() -> Agent[None, RelevanceResults]:
-    conn = BaseHook.get_connection(LLM_CONN_ID)
-    model = OpenRouterModel(
-        MODEL_ID, provider=OpenRouterProvider(api_key=conn.password)
-    )
-    return Agent(
-        model=model,
-        system_prompt=SYSTEM_PROMPT,
-        output_type=RelevanceResults,
-        model_settings=ModelSettings(timeout=60),
-    )
 
 
 @task
@@ -91,6 +85,7 @@ def filter_relevance() -> dict[str, int]:
                 store.save_decisions(verdicts)
                 passed += sum(1 for v in verdicts if v.relevant)
                 rejected += sum(1 for v in verdicts if not v.relevant)
+
             except BaseException as exc:
                 print(f"Batch of {len(batch)} listings failed: {exc!r}")
                 try:

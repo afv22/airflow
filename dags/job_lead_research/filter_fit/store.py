@@ -27,10 +27,10 @@ def pending_listings() -> list[JobListing]:
         f"""
         SELECT {COLUMNS}
         FROM job_listings
-        WHERE fit_decision = ?
+        WHERE fit_decision IN (?, ?)
         ORDER BY company_name, id
         """,
-        (FitDecision.PENDING.value,),
+        (FitDecision.PENDING.value, FitDecision.ERROR.value),
     )
     return [JobListing.load(dict(row)) for row in rows]
 
