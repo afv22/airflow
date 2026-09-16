@@ -1,0 +1,16 @@
+[project]
+name = "airflow"
+version = "0.1.0"
+description = "Airflow pipelines and DAGs"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "apache-airflow==3.3.0",
+    "resend>=2.35.0",
+    "beautifulsoup4>=4.15.0",
+    "apache-airflow-providers-common-ai[mcp]>=0.5",
+    "google-api-python-client>=2.198.0",
+    "google-auth>=2.55.1",
+    "pydantic-ai-slim[openai]>=2.43.0",
+    "pytest>=9.1.1",
+]
