@@ -12,5 +12,14 @@ dependencies = [
     "google-api-python-client>=2.198.0",
     "google-auth>=2.55.1",
     "pydantic-ai-slim[openai]>=2.43.0",
-    "pytest>=9.1.1",
 ]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["dags"]
+
+[tool.pyright]
+extraPaths = ["dags"]

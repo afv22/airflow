@@ -59,8 +59,12 @@ dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "pydantic-ai-slim", extra = ["openai"] },
-    { name = "pytest" },
     { name = "resend" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -71,9 +75,11 @@ requires-dist = [
     { name = "google-api-python-client", specifier = ">=2.198.0" },
     { name = "google-auth", specifier = ">=2.55.1" },
     { name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=2.43.0" },
-    { name = "pytest", specifier = ">=9.1.1" },
     { name = "resend", specifier = ">=2.35.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "alembic"
