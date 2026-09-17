@@ -1,5 +1,11 @@
+import json
+from pathlib import Path
+from typing import Any
+
 import pytest
 import requests
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class NetworkAccessError(RuntimeError):
@@ -31,3 +37,36 @@ def no_network(monkeypatch):
     for name in ("get", "post", "put", "patch", "delete", "head", "options"):
         monkeypatch.setattr(requests, name, _blocked(f"requests.{name}", 0))
     monkeypatch.setattr(requests, "request", _blocked("requests.request", 1))
+
+
+class FakeResponse:
+    def __init__(self, payload, status_code=200) -> None:
+        self.payload = payload
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} error")
+
+    def json(self):
+        return self.payload
+
+
+@pytest.fixture
+def fake_get(monkeypatch):
+    calls = []
+
+    def install(payload, status_code=200):
+        def get(url: str, **kwargs):
+            calls.append((url, kwargs))
+            return FakeResponse(payload, status_code)
+
+        monkeypatch.setattr(requests, "get", get)
+        return calls
+
+    return install
+
+
+@pytest.fixture
+def load_fixture():
+    return lambda name: json.loads((FIXTURES / name).read_text())
