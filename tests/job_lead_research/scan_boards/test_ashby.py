@@ -6,12 +6,12 @@ from job_lead_research.scan_boards.scrapers.ashby import API_ROOT
 from job_lead_research.types import ATSProvider, Company
 
 
-def company():
+def company(slug="elliptic"):
     return Company(
         name="Elliptic",
         board_url="",
         board_type=ATSProvider.ASHBY,
-        board_slug="elliptic",
+        board_slug=slug,
         status="active",
         notes="",
         synced_at="",
@@ -35,6 +35,11 @@ def test_fetch_jobs_raises_on_http_error(fake_get):
 
     with pytest.raises(requests.HTTPError):
         AshbyScraper(company()).fetch_jobs()
+
+
+def test_fetch_jobs_requires_slug():
+    with pytest.raises(ValueError, match="no board_slug"):
+        AshbyScraper(company(slug="")).fetch_jobs()
 
 
 def test_parse_job(load_fixture):
