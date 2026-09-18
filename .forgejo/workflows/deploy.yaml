@@ -3,6 +3,9 @@ name: Test, build image, deploy
 on:
   push:
     branches: [main]
+  # Manual runs always rebuild the image, for when the registry needs
+  # refreshing without a dependency change.
+  workflow_dispatch:
 
 env:
   IMAGE: git.marlin-peacock.ts.net/afv/airflow
@@ -32,13 +35,16 @@ jobs:
       - id: check
         run: |
           before='${{ github.event.before }}'
-          if [ -z "$before" ] || ! git cat-file -e "$before" 2>/dev/null; then
-            # First push, force push, or unknown base: assume the image is stale.
+          if [ '${{ github.event_name }}' = workflow_dispatch ] \
+             || [ -z "$before" ] || ! git cat-file -e "$before" 2>/dev/null; then
+            # Manual run, first push, force push, or unknown base: assume the
+            # image is stale.
             echo "image=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if git diff --quiet "$before" "${{ github.sha }}" -- \
-               pyproject.toml uv.lock Dockerfile .dockerignore; then
+               pyproject.toml uv.lock Dockerfile .dockerignore \
+               .forgejo/workflows/deploy.yaml; then
             echo "image=false" >> "$GITHUB_OUTPUT"
           else
             echo "image=true" >> "$GITHUB_OUTPUT"
