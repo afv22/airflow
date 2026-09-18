@@ -1,9 +1,12 @@
+# -- airflow --
 logs/
 postgres/
 state/
 
+# -- environment --
 .vscode
 .DS_Store
 __pycache__/
 
+# -- env vars --
 .env
