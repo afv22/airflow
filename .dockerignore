@@ -1,0 +1,7 @@
+# Only the dependency manifests enter the build context. Everything else --
+# DAGs, tests, .venv, logs, postgres data on the server checkout -- is either
+# mounted at runtime or irrelevant to the image. Keeping the context minimal
+# is what makes DAG-only commits reproduce the same image digest.
+*
+!pyproject.toml
+!uv.lock
