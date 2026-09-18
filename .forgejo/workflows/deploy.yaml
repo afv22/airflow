@@ -1,0 +1,35 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: docker
+    container:
+      image: catthehacker/ubuntu:act-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - run: uv sync --frozen
+      - run: uv run pytest
+
+  deploy:
+    needs: test
+    runs-on: docker
+    container:
+      image: catthehacker/ubuntu:act-22.04
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ vars.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Run deploy script on server
+        run: ssh -i ~/.ssh/deploy_key ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
