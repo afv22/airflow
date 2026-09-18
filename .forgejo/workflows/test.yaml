@@ -8,10 +8,15 @@ jobs:
   test:
     runs-on: docker
     container:
-      image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+      image: catthehacker/ubuntu:act-22.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --frozen
