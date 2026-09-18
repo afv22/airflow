@@ -42,6 +42,13 @@ jobs:
             echo "image=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # A previous build may have failed, leaving no :latest to deploy.
+          # Packages are public, so this needs no token.
+          if ! curl -sfo /dev/null \
+               https://git.marlin-peacock.ts.net/api/v1/packages/afv/container/airflow/latest; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if git diff --quiet "$before" "${{ github.sha }}" -- \
                pyproject.toml uv.lock Dockerfile .dockerignore \
                .forgejo/workflows/deploy.yaml; then
